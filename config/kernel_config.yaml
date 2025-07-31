@@ -1,0 +1,23 @@
+services:
+  - name: gpt-4.1-mini
+    type: completion
+    enable: true
+
+plugins:
+  - name: sql_plugin
+    class_name: SQLPlugin
+    alias: SQLPlugin
+    type: regular
+    enable: true
+    
+  - name: AzureSQLMCP
+    type: mcp
+    description: "MCP Plugin for Azure SQL Database access"
+    command: "uv"
+    args: ["run"]
+    server_path: "mcp_server/server.py"
+    cwd: "."
+    env_vars:
+      SERVER_NAME: "az-sqlserver-xxd-7369-agentic-ms-swedencentral.database.windows.net"
+      DATABASE: "az-sqldbldg-xxd-7369-agentic-ms-sweedencentral"
+    enable: true
