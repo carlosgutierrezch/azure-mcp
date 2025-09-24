@@ -1,7 +1,7 @@
 import asyncio
 import typer
 from semantic_kernel.agents import ChatHistoryAgentThread
-from agent.bankingservices_agent import BankingServicesAgent
+from agent.agent import AgentSK
 from semantic_kernel.contents import ChatHistory
 from semantic_kernel.contents.streaming_chat_message_content import (
     StreamingChatMessageContent,
@@ -20,7 +20,7 @@ def run():
         print("Inicializando agente")
         
         # Use the agent as an async context manager to handle MCP plugins
-        async with BankingServicesAgent("config/agent_config.yaml") as agent:
+        async with AgentSK("config/agent_config.yaml") as agent:
             print("Agente inicializado de manera exitosa")
             
             history = ChatHistory()

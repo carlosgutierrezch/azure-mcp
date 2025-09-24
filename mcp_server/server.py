@@ -6,7 +6,6 @@ import json
 from mcp.server.fastmcp import FastMCP
 import os
 from dotenv import load_dotenv
-from typing import Optional, List, Dict
 
 load_dotenv("../.env")
 
@@ -198,271 +197,220 @@ async def get_sample_data(table_name: str, limit: int = 5) -> str:
 
 # ==================================== tools based on expedientes
 
+# ==================================== Northwind-specific tools
+
 @mcp.tool()
-async def search_expedients(search_criteria: str, limit: int = 10) -> str:
-    """Search for expedients based on various criteria.
-    
+async def search_customers(search_criteria: str, limit: int = 10) -> str:
+    """Search customers by CompanyName, ContactName, City, or Country.
+
     Args:
-        search_criteria: Search term (can be expedient ID, client name, description, etc.)
-        limit: Maximum number of results to return (default: 10, max: 100)
+        search_criteria: term to search for
+        limit: maximum results (default 10, max 100)
     """
     try:
         engine = await get_azure_engine()
         limit = min(max(1, limit), 100)
-        
-        # Adjust this query based on your actual expedient table structure
+
         query = text("""
             SELECT TOP :limit
-                expedient_id,
-                client_name,
-                description,
-                status,
-                created_date,
-                last_updated
-            FROM expedients 
-            WHERE 
-                expedient_id LIKE :search_term
-                OR client_name LIKE :search_term
-                OR description LIKE :search_term
-                OR status LIKE :search_term
-            ORDER BY last_updated DESC
+                CustomerID,
+                CompanyName,
+                ContactName,
+                ContactTitle,
+                Address,
+                City,
+                Region,
+                PostalCode,
+                Country,
+                Phone,
+                Fax
+            FROM Customers
+            WHERE CompanyName LIKE :term
+               OR ContactName LIKE :term
+               OR City LIKE :term
+               OR Country LIKE :term
+            ORDER BY CompanyName
         """)
-        
-        search_term = f"%{search_criteria}%"
-        
+
+        term = f"%{search_criteria}%"
+
         with engine.connect() as connection:
-            result = connection.execute(query, {"limit": limit, "search_term": search_term})
+            result = connection.execute(query, {"limit": limit, "term": term})
             columns = list(result.keys())
             rows = result.fetchall()
-            
-            expedients = [dict(zip(columns, row)) for row in rows]
-            
-            result_dict = {
-                "search_criteria": search_criteria,
-                "found": len(expedients),
-                "expedients": expedients
-            }
-        
-        return json.dumps(result_dict, indent=2, default=str)
-        
+
+            customers = [dict(zip(columns, row)) for row in rows]
+
+        return json.dumps({"search_criteria": search_criteria, "found": len(customers), "customers": customers}, indent=2, default=str)
+
     except Exception as e:
-        return f"Expedient search failed: {str(e)}"
+        return f"Customer search failed: {str(e)}"
+
 
 @mcp.tool()
-async def get_expedient_details(expedient_id: str) -> str:
-    """Get detailed information about a specific expedient.
-    
+async def get_customer_orders(customer_id: str, limit: int = 20) -> str:
+    """Get orders for a given customer (from Orders table).
+
     Args:
-        expedient_id: The unique identifier of the expedient
+        customer_id: CustomerID (e.g., 'ALFKI')
+        limit: max number of orders to return (default 20, max 200)
     """
     try:
         engine = await get_azure_engine()
-        
+        limit = min(max(1, limit), 200)
+
         query = text("""
-            SELECT *
-            FROM expedients 
-            WHERE expedient_id = :expedient_id
+            SELECT TOP :limit
+                OrderID,
+                CustomerID,
+                EmployeeID,
+                OrderDate,
+                RequiredDate,
+                ShippedDate,
+                ShipVia,
+                Freight,
+                ShipName,
+                ShipCity,
+                ShipCountry
+            FROM Orders
+            WHERE CustomerID = :customer_id
+            ORDER BY OrderDate DESC
         """)
-        
+
         with engine.connect() as connection:
-            result = connection.execute(query, {"expedient_id": expedient_id})
+            result = connection.execute(query, {"limit": limit, "customer_id": customer_id})
             columns = list(result.keys())
             rows = result.fetchall()
-            
-            if not rows:
-                return f"Expedient '{expedient_id}' not found"
-            
-            expedient_data = dict(zip(columns, rows[0]))
-            
-            result_dict = {
-                "expedient_id": expedient_id,
-                "details": expedient_data
-            }
-        
-        return json.dumps(result_dict, indent=2, default=str)
-        
+            orders = [dict(zip(columns, row)) for row in rows]
+
+        return json.dumps({"customer_id": customer_id, "order_count": len(orders), "orders": orders}, indent=2, default=str)
+
     except Exception as e:
-        return f"Failed to get expedient details for '{expedient_id}': {str(e)}"
+        return f"Failed to get orders for customer '{customer_id}': {str(e)}"
+
 
 @mcp.tool()
-async def get_expedient_tasks(expedient_id: str) -> str:
-    """Get all tasks associated with an expedient.
-    
+async def get_order_details(order_id: int) -> str:
+    """Get order header and line items for a specific OrderID.
+
     Args:
-        expedient_id: The unique identifier of the expedient
+        order_id: numeric OrderID
     """
     try:
         engine = await get_azure_engine()
-        
-        query = text("""
-            SELECT 
-                task_id,
-                task_name,
-                task_description,
-                status,
-                assigned_to,
-                due_date,
-                created_date,
-                completed_date
-            FROM expedient_tasks 
-            WHERE expedient_id = :expedient_id
-            ORDER BY created_date DESC
+
+        header_q = text("""
+            SELECT OrderID, CustomerID, EmployeeID, OrderDate, RequiredDate, ShippedDate, ShipVia, Freight, ShipName, ShipAddress, ShipCity, ShipRegion, ShipPostalCode, ShipCountry
+            FROM Orders
+            WHERE OrderID = :order_id
         """)
-        
+
+        lines_q = text("""
+            SELECT od.OrderID, od.ProductID, p.ProductName, od.UnitPrice, od.Quantity, od.Discount
+            FROM [Order Details] od
+            JOIN Products p ON od.ProductID = p.ProductID
+            WHERE od.OrderID = :order_id
+        """)
+
         with engine.connect() as connection:
-            result = connection.execute(query, {"expedient_id": expedient_id})
+            h_res = connection.execute(header_q, {"order_id": order_id})
+            header = h_res.fetchone()
+            if not header:
+                return f"Order '{order_id}' not found"
+
+            header_cols = list(h_res.keys())
+            header_dict = dict(zip(header_cols, header))
+
+            l_res = connection.execute(lines_q, {"order_id": order_id})
+            line_cols = list(l_res.keys())
+            line_rows = l_res.fetchall()
+            lines = [dict(zip(line_cols, row)) for row in line_rows]
+
+        return json.dumps({"order": header_dict, "lines": lines}, indent=2, default=str)
+
+    except Exception as e:
+        return f"Failed to get order details for '{order_id}': {str(e)}"
+
+
+@mcp.tool()
+async def search_products(search_criteria: str, limit: int = 10) -> str:
+    """Search products by product name, category name or supplier name.
+
+    Args:
+        search_criteria: term to search
+        limit: maximum results (default 10, max 100)
+    """
+    try:
+        engine = await get_azure_engine()
+        limit = min(max(1, limit), 100)
+
+        query = text("""
+            SELECT TOP :limit
+                p.ProductID,
+                p.ProductName,
+                c.CategoryName,
+                s.CompanyName AS Supplier,
+                p.QuantityPerUnit,
+                p.UnitPrice,
+                p.UnitsInStock,
+                p.UnitsOnOrder,
+                p.ReorderLevel,
+                p.Discontinued
+            FROM Products p
+            LEFT JOIN Categories c ON p.CategoryID = c.CategoryID
+            LEFT JOIN Suppliers s ON p.SupplierID = s.SupplierID
+            WHERE p.ProductName LIKE :term
+               OR c.CategoryName LIKE :term
+               OR s.CompanyName LIKE :term
+            ORDER BY p.ProductName
+        """)
+
+        term = f"%{search_criteria}%"
+
+        with engine.connect() as connection:
+            result = connection.execute(query, {"limit": limit, "term": term})
             columns = list(result.keys())
             rows = result.fetchall()
-            
-            tasks = [dict(zip(columns, row)) for row in rows]
-            
-            result_dict = {
-                "expedient_id": expedient_id,
-                "task_count": len(tasks),
-                "tasks": tasks
-            }
-        
-        return json.dumps(result_dict, indent=2, default=str)
-        
+            products = [dict(zip(columns, row)) for row in rows]
+
+        return json.dumps({"search_criteria": search_criteria, "found": len(products), "products": products}, indent=2, default=str)
+
     except Exception as e:
-        return f"Failed to get tasks for expedient '{expedient_id}': {str(e)}"
+        return f"Product search failed: {str(e)}"
+
 
 @mcp.tool()
-async def run_expedient_task(expedient_id: str, task_name: str) -> str:
-    """Execute or mark a task as started for an expedient.
-    
+async def get_product_info(product_id: int) -> str:
+    """Get detailed product information including supplier and category.
+
     Args:
-        expedient_id: The unique identifier of the expedient
-        task_name: The name of the task to run
+        product_id: numeric ProductID
     """
     try:
         engine = await get_azure_engine()
-        
-        # First, check if the task exists
-        check_query = text("""
-            SELECT task_id, status 
-            FROM expedient_tasks 
-            WHERE expedient_id = :expedient_id AND task_name = :task_name
-        """)
-        
-        with engine.connect() as connection:
-            result = connection.execute(check_query, {
-                "expedient_id": expedient_id, 
-                "task_name": task_name
-            })
-            task_row = result.fetchone()
-            
-            if not task_row:
-                return f"Task '{task_name}' not found for expedient '{expedient_id}'"
-            
-            # Update task status to 'running' or 'in_progress'
-            update_query = text("""
-                UPDATE expedient_tasks 
-                SET status = 'running', 
-                    started_date = GETDATE()
-                WHERE expedient_id = :expedient_id AND task_name = :task_name
-            """)
-            
-            connection.execute(update_query, {
-                "expedient_id": expedient_id,
-                "task_name": task_name
-            })
-            connection.commit()
-            
-            return f"Task '{task_name}' has been started for expedient '{expedient_id}'"
-        
-    except Exception as e:
-        return f"Failed to run task '{task_name}' for expedient '{expedient_id}': {str(e)}"
 
-@mcp.tool()
-async def query_expedient_task_status(expedient_id: str, task_name: str) -> str:
-    """Check the status of a specific task for an expedient.
-    
-    Args:
-        expedient_id: The unique identifier of the expedient
-        task_name: The name of the task to check
-    """
-    try:
-        engine = await get_azure_engine()
-        
         query = text("""
-            SELECT 
-                task_id,
-                task_name,
-                status,
-                assigned_to,
-                created_date,
-                started_date,
-                due_date,
-                completed_date,
-                task_description
-            FROM expedient_tasks 
-            WHERE expedient_id = :expedient_id AND task_name = :task_name
+            SELECT p.ProductID, p.ProductName, p.SupplierID, s.CompanyName AS Supplier,
+                   p.CategoryID, c.CategoryName,
+                   p.QuantityPerUnit, p.UnitPrice, p.UnitsInStock, p.UnitsOnOrder, p.ReorderLevel, p.Discontinued
+            FROM Products p
+            LEFT JOIN Suppliers s ON p.SupplierID = s.SupplierID
+            LEFT JOIN Categories c ON p.CategoryID = c.CategoryID
+            WHERE p.ProductID = :product_id
         """)
-        
-        with engine.connect() as connection:
-            result = connection.execute(query, {
-                "expedient_id": expedient_id,
-                "task_name": task_name
-            })
-            columns = list(result.keys())
-            rows = result.fetchall()
-            
-            if not rows:
-                return f"Task '{task_name}' not found for expedient '{expedient_id}'"
-            
-            task_data = dict(zip(columns, rows[0]))
-            
-            result_dict = {
-                "expedient_id": expedient_id,
-                "task_name": task_name,
-                "status": task_data
-            }
-        
-        return json.dumps(result_dict, indent=2, default=str)
-        
-    except Exception as e:
-        return f"Failed to check status for task '{task_name}' in expedient '{expedient_id}': {str(e)}"
 
-@mcp.tool()
-async def update_expedient_status(expedient_id: str, new_status: str, notes: str = "") -> str:
-    """Update the status of an expedient.
-    
-    Args:
-        expedient_id: The unique identifier of the expedient
-        new_status: The new status to set
-        notes: Optional notes about the status change
-    """
-    try:
-        engine = await get_azure_engine()
-        
-        query = text("""
-            UPDATE expedients 
-            SET status = :new_status,
-                last_updated = GETDATE(),
-                notes = CASE 
-                    WHEN :notes = '' THEN notes 
-                    ELSE :notes 
-                END
-            WHERE expedient_id = :expedient_id
-        """)
-        
         with engine.connect() as connection:
-            result = connection.execute(query, {
-                "expedient_id": expedient_id,
-                "new_status": new_status,
-                "notes": notes
-            })
-            
-            if result.rowcount == 0:
-                return f"Expedient '{expedient_id}' not found"
-            
-            connection.commit()
-            
-            return f"Expedient '{expedient_id}' status updated to '{new_status}'"
-        
+            result = connection.execute(query, {"product_id": product_id})
+            row = result.fetchone()
+            if not row:
+                return f"Product '{product_id}' not found"
+            cols = list(result.keys())
+            prod = dict(zip(cols, row))
+
+        return json.dumps(prod, indent=2, default=str)
+
     except Exception as e:
-        return f"Failed to update status for expedient '{expedient_id}': {str(e)}"
+        return f"Failed to get product info for '{product_id}': {str(e)}"
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')

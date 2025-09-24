@@ -7,7 +7,7 @@ from semantic_kernel.kernel import KernelArguments
 from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 
 
-class BankingServicesAgent:
+class AgentSK:
     def __init__(self, config_path):
         self.config = self.load_config(config_path)
         self.prompt_template = self.load_prompt_template(self.config["prompt_template"])
@@ -20,7 +20,6 @@ class BankingServicesAgent:
         settings = self.kernel.get_prompt_execution_settings_from_service_id(service_id)
         settings.function_choice_behavior = FunctionChoiceBehavior.Auto()
         self.arguments = KernelArguments(
-            bank_name=self.config["bank_name"],
             settings=settings,
             chat_history=None,
         )
