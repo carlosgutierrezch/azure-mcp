@@ -1,0 +1,15 @@
+[project]
+name = "mcp-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-identity>=1.23.0",
+    "azure-mgmt-resource>=24.0.0",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.11.0",
+    "pandas>=2.3.1",
+    "pyodbc>=5.2.0",
+    "sqlalchemy>=2.0.41",
+]

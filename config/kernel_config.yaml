@@ -1,0 +1,18 @@
+services:
+  - name: gpt-4.1-mini
+    type: completion
+    enable: true
+
+plugins:
+    
+  - name: AzureSQLMCP
+    type: mcp
+    description: "MCP Plugin for Azure SQL Database access"
+    command: "uv"
+    args: ["run"]
+    server_path: "mcp_server/server.py"
+    cwd: "."
+    env_vars:
+      SERVER_NAME: ""
+      DATABASE: ""
+    enable: true
