@@ -1,4 +1,4 @@
 name: BankingServicesAgent
-prompt_template: "prompts/bankingservices_prompt.yaml"
+prompt_template: "prompts/northwind_prompt.yaml"
 bank_name: "BdE"
 service_id: gpt-4.1-mini

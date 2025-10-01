@@ -13,7 +13,6 @@ from semantic_kernel.connectors.ai.open_ai.services.azure_text_embedding import 
 from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 from dotenv import load_dotenv
 
-from plugins.emoji_enhancer_plugin import EmojiEnhancerPlugin
 from semantic_kernel.connectors.mcp import MCPStdioPlugin
 
 load_dotenv()
@@ -115,7 +114,7 @@ async def base_kernel() -> Kernel:
                 k,
                 service_spec["name"],
                 os.getenv(
-                    f"AZURE_OPENAI_{service_spec["name"]}_DEPLOYMENT_NAME",
+                    f"AZURE_OPENAI_{service_spec['name']}_DEPLOYMENT_NAME",
                     service_spec["name"],
                 ),
             )
@@ -124,7 +123,7 @@ async def base_kernel() -> Kernel:
                 k,
                 service_spec["name"],
                 os.getenv(
-                    f"AZURE_OPENAI_{service_spec["name"]}_DEPLOYMENT_NAME",
+                    f"AZURE_OPENAI_{service_spec['name']}_DEPLOYMENT_NAME",
                     service_spec["name"],
                 ),
             )
@@ -157,7 +156,7 @@ def base_kernel_sync() -> Kernel:
                 k,
                 service_spec["name"],
                 os.getenv(
-                    f"AZURE_OPENAI_{service_spec["name"]}_DEPLOYMENT_NAME",
+                    f"AZURE_OPENAI_{service_spec['name']}_DEPLOYMENT_NAME",
                     service_spec["name"],
                 ),
             )
@@ -166,7 +165,7 @@ def base_kernel_sync() -> Kernel:
                 k,
                 service_spec["name"],
                 os.getenv(
-                    f"AZURE_OPENAI_{service_spec["name"]}_DEPLOYMENT_NAME",
+                    f"AZURE_OPENAI_{service_spec['name']}_DEPLOYMENT_NAME",
                     service_spec["name"],
                 ),
             )

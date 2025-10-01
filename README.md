@@ -23,7 +23,7 @@ Top-level (root) entries:
 
 Notable directories and files (actual names):
 
-- `agent/`
+- `src/`
     - `agent.py` — the Semantic Kernel agent wrapper and MCP plugin handling
     - `__init__.py`
 
