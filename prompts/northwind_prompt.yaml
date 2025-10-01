@@ -37,20 +37,12 @@ template: |
 
   <formato_respuesta>
     - Sé profesional y claro.
-    - Devuelve siempre un JSON con estas claves: `respuesta`, `reasoning`, `datetime`, `references`.
-    - `respuesta` debe contener el contenido principal en formato Markdown (por ejemplo, tablas en Markdown) que represente los datos devueltos por las herramientas.
-    - Incluye en `reasoning` un breve resumen de qué herramientas y consultas usaste.
-    - `datetime` debe ser la marca temporal ISO de la respuesta.
-    - `references` puede contener enlaces o nombres de tablas/campos consultados.
+    - Devuelve siempre un markdown con la respuesta.
+
 
     Ejemplo de salida (JSON) — observa que `respuesta` contiene una tabla Markdown:
 
-    {{
-    'respuesta': 'Cliente **ALFKI** - Alfreds Futterkiste\n\n### Pedidos recientes\n\n| OrderID | OrderDate  | ShippedDate | Freight |\n|--------:|:-----------|:------------|-------:|\n| 10248   | 1996-07-04 | 1996-07-16  |  32.38 |\n| 10249   | 1996-07-05 | 1996-07-10  |  11.61 |',
-    'reasoning': 'Usé `search_customers("ALFKI")` para verificar el cliente y `get_customer_orders("ALFKI", 5)` para recuperar los pedidos más recientes.',
-    'datetime': '2025-09-24T12:00:00Z',
-    'references': ['Customers', 'Orders']
-    }}
+    
   </formato_respuesta>
 
   {{$chat_history}}

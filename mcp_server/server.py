@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv("../.env")
 
 mcp = FastMCP("azure-sql-server")
-
+local_db = os.getenv("LOCAL_DB", "true").lower() == "true"
 server_name = os.getenv("SERVER_NAME")
 database = os.getenv("DATABASE")
 
@@ -24,33 +24,59 @@ async def get_azure_engine():
         return engine
         
     try:
-        credential = DefaultAzureCredential()
-        token = credential.get_token("https://database.windows.net/")
-        access_token = token.token
-        
-        token_bytes = access_token.encode("utf-16-le")
-        token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
-        
-        conn_params = {
-            "DRIVER": "{ODBC Driver 17 for SQL Server}",
-            "SERVER": server_name,
-            "DATABASE": database,
-            "Encrypt": "yes",
-            "TrustServerCertificate": "no",
-            "Connection Timeout": "100"
-        }
-        
-        conn_str = urllib.parse.quote_plus(';'.join([f"{key}={value}" for key, value in conn_params.items()]))
-        
-        engine = create_engine(
-            f"mssql+pyodbc:///?odbc_connect={conn_str}",
-            connect_args={"attrs_before": {1256: token_struct}}
-        )
+        if local_db:
+            # Local SQL Server connection
+            conn_params = {
+                "DRIVER": "{ODBC Driver 17 for SQL Server}",
+                "SERVER": server_name,
+                "DATABASE": database,
+                "Trusted_Connection": "yes",
+                "Encrypt": "no",
+                "Connection Timeout": "30"
+            }
+            
+            conn_str = urllib.parse.quote_plus(';'.join([f"{key}={value}" for key, value in conn_params.items()]))
+            
+            engine = create_engine(
+                f"mssql+pyodbc:///?odbc_connect={conn_str}"
+            )
+            
+            print(f"Connected to local SQL Server: {server_name}")
+            
+        else:
+            # Azure SQL Database connection
+            from azure.identity import DefaultAzureCredential
+            
+            credential = DefaultAzureCredential()
+            token = credential.get_token("https://database.windows.net/")
+            access_token = token.token
+            
+            token_bytes = access_token.encode("utf-16-le")
+            token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
+            
+            conn_params = {
+                "DRIVER": "{ODBC Driver 17 for SQL Server}",
+                "SERVER": server_name,
+                "DATABASE": database,
+                "Encrypt": "yes",
+                "TrustServerCertificate": "yes",
+                "Connection Timeout": "100"
+            }
+            
+            conn_str = urllib.parse.quote_plus(';'.join([f"{key}={value}" for key, value in conn_params.items()]))
+            
+            engine = create_engine(
+                f"mssql+pyodbc:///?odbc_connect={conn_str}",
+                connect_args={"attrs_before": {1256: token_struct}}
+            )
+            
+            print(f"Connected to Azure SQL Database: {server_name}")
         
         return engine
         
     except Exception as e:
-        raise Exception(f"Failed to create Azure SQL engine: {e}")
+        connection_type = "local SQL Server" if local_db else "Azure SQL Database"
+        raise Exception(f"Failed to create {connection_type} engine: {e}")
 
 
 @mcp.tool()
