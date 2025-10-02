@@ -404,4 +404,5 @@ FodyWeavers.xsd
 *.env
 venv-agent
 .venv
+venv/
 debug_app.py

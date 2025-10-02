@@ -11,7 +11,7 @@ class AgentSK:
     def __init__(self, config_path):
         self.config = self.load_config(config_path)
         self.prompt_template = self.load_prompt_template(self.config["prompt_template"])
-        
+
         self.kernel = base_kernel_sync()
         self.mcp_plugins = []
         self.mcp_contexts = []
